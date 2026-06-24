@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模拟盘 Dashboard - V46_v62_v20_final</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}
+body{background:#f0f2f5;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:24px 32px;position:sticky;top:0;z-index:100}
+.header h1{color:#fff;font-size:22px;font-weight:600}
+.header p{color:#8899aa;font-size:13px;margin-top:4px}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.nav-bar{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.nav-btn{padding:7px 16px;border-radius:18px;border:none;cursor:pointer;font-size:13px;background:#e8ecf1;color:#555;font-weight:500}
+.nav-btn.active{background:#1a1a2e;color:#fff}
+.section{display:none}.section.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:#fff;border-radius:10px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.kpi-value{font-size:26px;font-weight:700;margin:3px 0}
+.kpi-label{font-size:12px;color:#8899aa}
+.g{color:#00c853}.r{color:#ff5252}.b{color:#2196f3}.o{color:#ff9100}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.chart-card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.chart-card.full{grid-column:1/-1}
+.chart-title{font-size:14px;font-weight:600;color:#333;margin-bottom:10px}
+.chart-wrap{width:100%;height:340px}.chart-wrap.tall{height:440px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f5f7fa;padding:8px 10px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e8ecf1;white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid #f0f2f5}
+tr:hover td{background:#f8f9fb}
+.buy{color:#ff5252;font-weight:600}.sell{color:#00c853;font-weight:600}
+.scroll{max-height:380px;overflow-y:auto;border-radius:6px;border:1px solid #f0f2f5}
+.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;background:#e3f2fd;color:#1565c0}
+@media(max-width:900px){.chart-grid{grid-template-columns:1fr}}
+.loading{text-align:center;padding:60px;color:#8899aa;font-size:16px}
+</style>
+</head>
+<body>
+<div class="header"><h1>模拟盘 V46_v62_v20_final</h1><p id="subtitle">加载中...</p></div>
+<div class="container" id="app" style="display:none">
+  <div class="nav-bar" id="navBar"></div>
+  <div id="tabContent"></div>
+</div>
+<div class="loading" id="loading">加载数据中...</div>
+
+<script>
+let D = null;
+fetch('data.json').then(r=>r.json()).then(d=>{
+  D=d; document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('subtitle').textContent=
+    d.stats['回测起始日']+' ~ '+d.stats['回测结束日']+' | 共'+d.stats['回测天数']+'天 | 更新:'+d.updated;
+  renderAll();
+}).catch(e=>{
+  document.getElementById('loading').innerHTML='❌ 数据加载失败: '+e.message;
+});
+
+function renderAll(){
+  const tabs=[
+    {id:'overview',label:'📊 概览',fn:renderOverview},
+    {id:'industry',label:'🏭 行业',fn:renderIndustry},
+    {id:'pnl',label:'💰 盈亏',fn:renderPnL},
+    {id:'trades',label:'📝 交易',fn:renderTrades},
+  ];
+  const nav=document.getElementById('navBar');
+  tabs.forEach((t,i)=>{
+    const btn=document.createElement('button');
+    btn.className='nav-btn'+(i===0?' active':'');
+    btn.textContent=t.label;
+    btn.onclick=()=>{
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tabContent').innerHTML='<div id="tab-inner"></div>';
+      t.fn();
+    };
+    nav.appendChild(btn);
+  });
+  document.getElementById('tabContent').innerHTML='<div id="tab-inner"></div>';
+  renderOverview();
+}
+
+// ===== 概览 =====
+function renderOverview(){
+  const s=D.stats;
+  const html=`
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">最终净值</div><div class="kpi-value g">${(+s['最终净值']).toFixed(4)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">总收益</div><div class="kpi-value g">+${(+s['总收益%']).toFixed(2)}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">年化收益</div><div class="kpi-value g">+${(+s['年化收益%']).toFixed(2)}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">最大回撤</div><div class="kpi-value r">${(+s['最大回撤%']).toFixed(2)}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">胜率</div><div class="kpi-value b">${(+s['胜率%']).toFixed(1)}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">交易数</div><div class="kpi-value o">${s['总交易数']}</div></div>
+      <div class="kpi-card"><div class="kpi-label">平均持仓</div><div class="kpi-value b">${(+s['平均持仓天数']).toFixed(1)}天</div></div>
+      <div class="kpi-card"><div class="kpi-label">交易成本</div><div class="kpi-value" style="font-size:18px;color:#666">${(+s['交易成本合计']).toFixed(0)}</div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card full"><div class="chart-title">净值走势</div><div class="chart-wrap tall" id="c-nav"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">卖出原因</div><div class="chart-wrap" id="c-sell" style="height:280px"></div></div>
+      <div class="chart-card"><div class="chart-title">持仓数量</div><div class="chart-wrap" id="c-pos" style="height:280px"></div></div>
+    </div>
+    <div class="chart-card full"><div class="chart-title">当前持仓 (${D.holdings.length}只)</div>
+      <div class="scroll"><table><thead><tr><th>代码</th><th>名称</th><th>行业</th><th>数量</th><th>买入价</th><th>现价</th><th>盈亏%</th><th>市值</th><th>天数</th></tr></thead><tbody>
+        ${D.holdings.map(h=>`<tr><td><b>${h['代码']}</b></td><td>${h['名称']}</td><td><span class="badge">${h['行业']}</span></td><td>${h['持仓数量']}</td><td>${h['买入价格']}</td><td>${h['当前价格']}</td><td style="color:${+h['盈亏%']>=0?'green':'red'}">${h['盈亏%']}%</td><td>${h['市值']}</td><td>${h['入池天数']}</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>`;
+  document.getElementById('tab-inner').innerHTML=html;
+  Plotly.newPlot('c-nav',[
+    {x:D.nav.map(d=>d.date),y:D.nav.map(d=>d.nav),type:'scatter',mode:'lines',name:'净值',fill:'tozeroy',line:{color:'#2196f3',width:2}},
+  ],{margin:{t:10,r:20,b:40,l:60},hovermode:'x unified',xaxis:{showgrid:true,gridcolor:'#f0f2f5'},yaxis:{tickformat:'.4f'},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+  const sr=Object.entries(D.sell_reasons);
+  Plotly.newPlot('c-sell',[{labels:sr.map(x=>x[0]),values:sr.map(x=>x[1]),type:'pie',hole:0.45,marker:{colors:['#ff5252','#ff9100','#00c853','#2196f3','#9c27b0']},textinfo:'label+percent'}],{margin:{t:10,b:10,l:10,r:10},showlegend:false,plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+  Plotly.newPlot('c-pos',[{x:D.nav.map(d=>d.date),y:['持仓数','持仓数','持仓数'],type:'scatter'}],{margin:{t:10,r:10,b:40,l:50},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+  // simple positions bar
+  var posData = D.nav.map(d=>d.positions);
+  Plotly.newPlot('c-pos',[{x:D.nav.map(d=>d.date),y:posData,type:'bar',marker:{color:'#4caf50',opacity:0.7}}],{margin:{t:10,r:10,b:40,l:50},hovermode:'x',xaxis:{showgrid:false},yaxis:{title:'持仓数量',dtick:10},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+}
+
+// ===== 行业 =====
+function renderIndustry(){
+  const html=`
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">持仓行业分布(市值)</div><div class="chart-wrap" id="c-ind-pie" style="height:320px"></div></div>
+      <div class="chart-card"><div class="chart-title">行业平均盈亏</div><div class="chart-wrap" id="c-ind-bar" style="height:320px"></div></div>
+    </div>
+    <div class="chart-card full"><div class="chart-title">行业盈亏明细</div>
+      <div class="scroll"><table><thead><tr><th>行业</th><th>平均盈亏%</th><th>胜率</th></tr></thead><tbody>
+        ${D.ind_pnl.map(x=>`<tr><td><b>${x.industry}</b></td><td style="color:${x.avg_pnl>0?'green':'red'}">${x.avg_pnl}%</td><td>${x.win_rate}%</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>`;
+  document.getElementById('tab-inner').innerHTML=html;
+  Plotly.newPlot('c-ind-pie',[{labels:D.industry.map(x=>x.industry),values:D.industry.map(x=>x.value),type:'pie',hole:0.45,textinfo:'label+percent',textposition:'outside'}],{margin:{t:10,b:10,l:10,r:10},showlegend:false,plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+  Plotly.newPlot('c-ind-bar',[{x:D.ind_pnl.map(x=>x.industry),y:D.ind_pnl.map(x=>x.avg_pnl),type:'bar',marker:{color:D.ind_pnl.map(x=>x.avg_pnl>0?'#00c853':'#ff5252')}}],{margin:{t:10,r:10,b:80,l:50},xaxis:{tickangle:-45},yaxis:{title:'平均盈亏%'},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+}
+
+// ===== 盈亏 =====
+function renderPnL(){
+  const html=`
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">盈亏分布</div><div class="chart-wrap" id="c-dist" style="height:320px"></div></div>
+      <div class="chart-card"><div class="chart-title">盈亏TOP10</div><div class="chart-wrap" id="c-top" style="height:320px"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">🏆 最赚钱TOP10</div>
+        <div class="scroll" style="max-height:340px"><table><thead><tr><th>代码</th><th>名称</th><th>行业</th><th>盈亏%</th><th>金额</th><th>天数</th></tr></thead><tbody>
+          ${D.top_winners.map(t=>`<tr><td><b>${t['代码']}</b></td><td>${t['名称']}</td><td><span class="badge">${t['行业']}</span></td><td class="sell">${t['盈亏%']}%</td><td class="sell">${t['盈亏金额']}</td><td>${t['持仓天数']}</td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+      <div class="chart-card"><div class="chart-title">💔 最亏钱TOP10</div>
+        <div class="scroll" style="max-height:340px"><table><thead><tr><th>代码</th><th>名称</th><th>行业</th><th>盈亏%</th><th>金额</th><th>天数</th></tr></thead><tbody>
+          ${D.top_losers.map(t=>`<tr><td><b>${t['代码']}</b></td><td>${t['名称']}</td><td><span class="badge">${t['行业']}</span></td><td class="buy">${t['盈亏%']}%</td><td class="buy">${t['盈亏金额']}</td><td>${t['持仓天数']}</td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+    </div>`;
+  document.getElementById('tab-inner').innerHTML=html;
+  const clrs={'<-10%':'#d32f2f','-10~-5%':'#ff5252','-5~0%':'#ffab91','0~5%':'#a5d6a7','5~10%':'#66bb6a','>10%':'#2e7d32'};
+  Plotly.newPlot('c-dist',[{x:D.pnl_dist.map(x=>x.r),y:D.pnl_dist.map(x=>x.c),type:'bar',marker:{color:D.pnl_dist.map(x=>clrs[x.r]||'#999')}}],{margin:{t:10,r:10,b:40,l:50},xaxis:{title:'盈亏区间'},yaxis:{title:'次数'},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+  const all=[...D.top_winners,...D.top_losers];
+  Plotly.newPlot('c-top',[{x:all.map(t=>t['代码']),y:all.map(t=>t['盈亏%值']),type:'bar',marker:{color:all.map(t=>t['盈亏%值']>0?'#00c853':'#ff5252')},text:all.map(t=>t['盈亏%']+'%'),textposition:'outside'}],{margin:{t:10,r:10,b:60,l:50},xaxis:{tickangle:-45},yaxis:{title:'盈亏%'},plot_bgcolor:'rgba(0,0,0,0)',paper_bgcolor:'rgba(0,0,0,0)'},{responsive:true,displaylogo:false});
+}
+
+// ===== 交易 =====
+function renderTrades(){
+  const html=`
+    <div class="chart-card full"><div class="chart-title">最近一周交易 (${D.week_trades.length}条)</div>
+      <div class="scroll" style="max-height:700px"><table><thead><tr><th>日期</th><th>代码</th><th>名称</th><th>行业</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>盈亏%</th></tr></thead><tbody>
+        ${D.week_trades.map(t=>`<tr><td>${t['日期']}</td><td><b>${t['代码']}</b></td><td>${t['名称']}</td><td><span class="badge">${t['行业']}</span></td><td class="${t['买卖方向']=='买入'?'buy':'sell'}">${t['买卖方向']}</td><td>${t['价格']}</td><td>${t['数量']}</td><td>${t['金额']}</td><td style="color:${+t['盈亏%']>0?'green':(+t['盈亏%']<0?'red':'#999')}">${t['盈亏%']}%</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>`;
+  document.getElementById('tab-inner').innerHTML=html;
+}
+</script>
+</body>
+</html>
