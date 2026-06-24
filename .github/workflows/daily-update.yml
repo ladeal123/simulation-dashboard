@@ -1,0 +1,30 @@
+name: Daily Dashboard Update
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install openpyxl
+      - name: Build dashboard from latest data
+        run: |
+          EXCEL=$(ls -t data/模拟盘_V46_v62_v20_final_*.xlsx 2>/dev/null | head -1)
+          if [ -n "$EXCEL" ]; then
+            python scripts/build_dashboard.py "$EXCEL"
+            cp data.js docs/
+          fi
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Daily update $(date -u '+%Y-%m-%d')"
+          git push
