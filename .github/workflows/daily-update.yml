@@ -1,0 +1,44 @@
+name: Daily Dashboard Update
+
+# 每天北京时间 16:00 (UTC 08:00) 自动运行
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'  # 周一到周五 UTC 08:00 = 北京时间 16:00
+  workflow_dispatch: {}      # 也可手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install openpyxl
+
+      - name: Run simulation
+        run: |
+          cd scripts
+          python sim_V46_v62_v20_final.py || true
+
+      - name: Build dashboard
+        run: |
+          cd scripts
+          # 找到最新生成的Excel
+          EXCEL=$(ls -t ../data/模拟盘_V46_v62_v20_final_*.xlsx 2>/dev/null | head -1)
+          if [ -n "$EXCEL" ]; then
+            python build_dashboard.py "$EXCEL"
+            cp data.js ../dashboard/
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Daily dashboard update $(date -u '+%Y-%m-%d')"
+          git push
