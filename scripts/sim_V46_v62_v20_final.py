@@ -413,6 +413,8 @@ trades = []
 daily_nav = []
 daily_top50 = []
 last_full_pool = []
+daily_rank_up = []  # 每日排名上升最快Top10
+prev_day_rank = {}  # 前一日排名(code->rank)
 trade_id = 0
 n = len(sim_dates)
 total_commission = 0.0
@@ -526,7 +528,34 @@ for di, date in enumerate(sim_dates):
         '量比加分': c['vol_bonus'],
         '涨停': '是' if c['is_zt'] else '',
     } for idx, c in enumerate(candidates)]
-
+    
+    # 记录每日排名上升最快的10只
+    if prev_day_rank:
+        rank_changes = []
+        for idx, c in enumerate(candidates[:100]):  # 只看前100名
+            code = c['code']
+            cur_rank = idx + 1
+            prev_rank = prev_day_rank.get(code)
+            if prev_rank is not None:
+                change = prev_rank - cur_rank  # 正数=排名上升
+                if change > 0:
+                    rank_changes.append({
+                        '日期': signal_date,
+                        '代码': code,
+                        '名称': code_to_name.get(code, ''),
+                        '指数归属': get_index_tag(code),
+                        '当日排名': cur_rank,
+                        '昨日排名': prev_rank,
+                        '排名变化': change,
+                        '得分': round(c['score'], 4),
+                        '量比': c['vol_ratio'],
+                    })
+        # 取上升最快的Top10
+        rank_changes.sort(key=lambda x: -x['排名变化'])
+        daily_rank_up.extend(rank_changes[:10])
+    # 更新前一日排名（只保留Top200）
+    prev_day_rank = {c['code']: idx + 1 for idx, c in enumerate(candidates[:200])}
+    
     # 2. 卖出
     to_sell = []
     for code, pos in list(portfolio.items()):
@@ -806,6 +835,12 @@ write_sheet(ws4, h4, daily_top50, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 
 ws5 = wb.create_sheet('最新完整备选池')
 write_sheet(ws5, h4, last_full_pool, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8])
 
+# 每日排名上升最快Top10 (按日期降序)
+ws_r = wb.create_sheet('每日涨幅最快Top10')
+hr = ['日期', '代码', '名称', '指数归属', '当日排名', '昨日排名', '排名变化', '得分', '量比']
+daily_rank_up_sorted = sorted(daily_rank_up, key=lambda x: x['日期'], reverse=True)
+write_sheet(ws_r, hr, daily_rank_up_sorted, col_widths=[12, 12, 14, 10, 12, 12, 12, 12, 10])
+
 ws6 = wb.create_sheet('统计分析')
 stats = [
     {'指标': '总收益%', '数值': round(total_return, 2)},
@@ -838,4 +873,5 @@ print(f"  Sheet2 交易记录: {len(trades_sorted)} 行 (按日期降序)")
 print(f"  Sheet3 净值曲线: {len(daily_nav)} 行")
 print(f"  Sheet4 每日Top50: {len(daily_top50)} 行")
 print(f"  Sheet5 最新备选池: {len(last_full_pool)} 行")
-print(f"  Sheet6 统计分析: {len(stats)} 行")
+print(f"  Sheet6 每日涨幅最快Top10: {len(daily_rank_up_sorted)} 行 (按日期降序)")
+print(f"  Sheet7 统计分析: {len(stats)} 行")
