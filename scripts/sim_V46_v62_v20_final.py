@@ -43,7 +43,6 @@ CLOSE_FILE = '/workspace/模拟盘收盘价后复权.xlsx'
 OPEN_FILE = '/workspace/模拟盘开盘价后复权.xlsx'
 INDEX_FILE = '/workspace/模拟盘指数价格数据.xlsx'
 VOL_FILE = '/workspace/模拟盘成交量.xlsx'
-INDEX_MEMBER_FILE = '/workspace/index_membership.json'
 
 
 # ===================== 工具函数 =====================
@@ -236,23 +235,39 @@ vol_codes, vol_data = load_vol_file(VOL_FILE)
 common_codes = set(vol_codes) & set(close_codes)
 print(f"  成交量: {len(vol_codes)} 只, 与收盘价共有: {len(common_codes)} 只")
 
-# 加载指数成分股归属
-import json
-index_member = {}
-try:
-    with open(INDEX_MEMBER_FILE) as f:
-        raw = json.load(f)
-    # raw格式: { '600519': '300', '600109': '500', ... }
-    # 模拟盘代码格式: 600519.SH
-    index_member = raw
-    print(f"  指数成分: 已标记 {len(index_member)} 只股票")
-except Exception as e:
-    print(f"  ⚠️ 指数成分加载失败: {e}")
+# 从股票池Excel加载指数成分股归属和模拟盘池
+print("[3.5/7] 加载股票池成分信息...", flush=True)
+pool_wb = openpyxl.load_workbook(POOL_FILE, data_only=True, read_only=True)
+
+# 沪深300 / 中证500 / 中证1000 成分股
+index_sets = {}
+for sheet_name, tag in [('沪深300', '300'), ('中证500', '500'), ('中证1000', '1000')]:
+    ws = pool_wb[sheet_name]
+    codes = set()
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row and row[0]:
+            codes.add(str(row[0]).strip())
+    index_sets[tag] = codes
+    print(f"  {sheet_name}: {len(codes)}只")
+
+# 模拟盘池 (用于判断池内/池外)
+pool_ws = pool_wb['模拟盘']
+pool_codes = set()
+for row in pool_ws.iter_rows(min_row=2, values_only=True):
+    if row and row[0]:
+        pool_codes.add(str(row[0]).strip())
+print(f"  模拟盘池: {len(pool_codes)}只")
+pool_wb.close()
 
 def get_index_tag(code):
-    """获取股票指数归属: 300/500/1000/其他"""
-    raw = code.split('.')[0]
-    return index_member.get(raw, '其他')
+    raw = code.strip()
+    for tag in ['300', '500', '1000']:
+        if raw in index_sets[tag]:
+            return tag
+    return '其他'
+
+def is_in_pool(code):
+    return '是' if code.strip() in pool_codes else '否'
 
 
 # ===================== 加载指数 + V4状态 =====================
@@ -487,7 +502,7 @@ for di, date in enumerate(sim_dates):
             '日期': signal_date, '执行日': exec_date, '排名': rank, '代码': c['code'],
             '名称': code_to_name.get(c['code'], ''),
             '指数归属': get_index_tag(c['code']),
-            '池内': '是',
+            '池内': is_in_pool(c['code']),
             '得分': round(c['score'], 4),
             '金叉天数': c['gc_days'],
             'DIF%': round(c['dif_pct'], 4),
@@ -501,7 +516,7 @@ for di, date in enumerate(sim_dates):
         '日期': signal_date, '执行日': exec_date, '排名': idx + 1, '代码': c['code'],
         '名称': code_to_name.get(c['code'], ''),
         '指数归属': get_index_tag(c['code']),
-        '池内': '是',
+        '池内': is_in_pool(c['code']),
         '得分': round(c['score'], 4),
         '金叉天数': c['gc_days'],
         'DIF%': round(c['dif_pct'], 4),
@@ -681,7 +696,7 @@ for code, pos in portfolio.items():
     final_holdings.append({
         '代码': code, '名称': code_to_name.get(code, ''),
         '指数归属': get_index_tag(code),
-        '池内': '是',
+        '池内': is_in_pool(code),
         '持仓数量': pos['shares'],
         '买入价格': round(pos['entry_price'], 4),
         '当前价格': round(close_p, 4),
