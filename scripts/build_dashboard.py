@@ -55,6 +55,8 @@ def build(excel_path, pool_path='股票池.xlsx'):
         if row[0]:
             h = dict(zip(h1, [str(x) if x is not None else '' for x in row]))
             h['行业'] = code_to_industry.get(h['代码'], '未知')
+            h['指数归属'] = h.get('指数归属', '其他')
+            h['池内'] = h.get('池内', '是')
             holdings.append(h)
     
     # 行业持仓分布
