@@ -267,7 +267,7 @@ def get_index_tag(code):
     return '其他'
 
 def is_in_pool(code):
-    return '是' if code.strip() in pool_codes else '否'
+    return '是' if code.strip() in pool_codes else ''
 
 
 # ===================== 加载指数 + V4状态 =====================
@@ -544,6 +544,7 @@ for di, date in enumerate(sim_dates):
                         '代码': code,
                         '名称': code_to_name.get(code, ''),
                         '指数归属': get_index_tag(code),
+                        '池内': is_in_pool(code),
                         '当日排名': cur_rank,
                         '昨日排名': prev_rank,
                         '排名变化': change,
@@ -794,7 +795,8 @@ thin = Side(style='thin', color='BFBFBF')
 border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
 
-def write_sheet(ws, headers, data_rows, col_widths=None):
+def write_sheet(ws, headers, data_rows, col_widths=None, highlight_col=None, highlight_val='是'):
+    green_fill = PatternFill('solid', fgColor='C6EFCE')
     for ci, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=ci, value=h)
         cell.font = header_font
@@ -807,6 +809,8 @@ def write_sheet(ws, headers, data_rows, col_widths=None):
             cell = ws.cell(row=ri, column=ci, value=v)
             cell.border = border
             cell.alignment = Alignment(horizontal='center')
+            if highlight_col and h == highlight_col and v == highlight_val:
+                cell.fill = green_fill
     if col_widths:
         for ci, w in enumerate(col_widths, 1):
             ws.column_dimensions[get_column_letter(ci)].width = w
@@ -815,7 +819,7 @@ def write_sheet(ws, headers, data_rows, col_widths=None):
 
 ws1 = wb.create_sheet('当前持仓')
 h1 = ['代码', '名称', '指数归属', '池内', '持仓数量', '买入价格', '当前价格', '盈亏%', '市值', '入池天数', '买入日期']
-write_sheet(ws1, h1, final_holdings, col_widths=[12, 14, 10, 8, 10, 12, 12, 10, 14, 10, 12])
+write_sheet(ws1, h1, final_holdings, col_widths=[12, 14, 10, 8, 10, 12, 12, 10, 14, 10, 12], highlight_col='池内')
 
 # 交易记录: 按日期降序排列 (最新在前)
 ws2 = wb.create_sheet('交易记录')
@@ -830,16 +834,16 @@ write_sheet(ws3, h3, daily_nav, col_widths=[12, 12, 12, 16, 16])
 
 ws4 = wb.create_sheet('每日备选池Top50')
 h4 = ['日期', '执行日', '排名', '代码', '名称', '指数归属', '池内', '得分', '金叉天数', 'DIF%', 'BAR%', 'vol10', '量比', '量比加分', '涨停']
-write_sheet(ws4, h4, daily_top50, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8])
+write_sheet(ws4, h4, daily_top50, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8], highlight_col='池内')
 
 ws5 = wb.create_sheet('最新完整备选池')
-write_sheet(ws5, h4, last_full_pool, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8])
+write_sheet(ws5, h4, last_full_pool, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8], highlight_col='池内')
 
 # 每日排名上升最快Top10 (按日期降序)
 ws_r = wb.create_sheet('每日涨幅最快Top10')
-hr = ['日期', '代码', '名称', '指数归属', '当日排名', '昨日排名', '排名变化', '得分', '量比']
+hr = ['日期', '代码', '名称', '指数归属', '池内', '当日排名', '昨日排名', '排名变化', '得分', '量比']
 daily_rank_up_sorted = sorted(daily_rank_up, key=lambda x: x['日期'], reverse=True)
-write_sheet(ws_r, hr, daily_rank_up_sorted, col_widths=[12, 12, 14, 10, 12, 12, 12, 12, 10])
+write_sheet(ws_r, hr, daily_rank_up_sorted, col_widths=[12, 12, 14, 10, 8, 12, 12, 12, 12, 10], highlight_col='池内')
 
 ws6 = wb.create_sheet('统计分析')
 stats = [
