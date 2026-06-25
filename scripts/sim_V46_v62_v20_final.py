@@ -43,6 +43,7 @@ CLOSE_FILE = '/workspace/模拟盘收盘价后复权.xlsx'
 OPEN_FILE = '/workspace/模拟盘开盘价后复权.xlsx'
 INDEX_FILE = '/workspace/模拟盘指数价格数据.xlsx'
 VOL_FILE = '/workspace/模拟盘成交量.xlsx'
+INDEX_MEMBER_FILE = '/workspace/index_membership.json'
 
 
 # ===================== 工具函数 =====================
@@ -234,6 +235,24 @@ def load_vol_file(path):
 vol_codes, vol_data = load_vol_file(VOL_FILE)
 common_codes = set(vol_codes) & set(close_codes)
 print(f"  成交量: {len(vol_codes)} 只, 与收盘价共有: {len(common_codes)} 只")
+
+# 加载指数成分股归属
+import json
+index_member = {}
+try:
+    with open(INDEX_MEMBER_FILE) as f:
+        raw = json.load(f)
+    # raw格式: { '600519': '300', '600109': '500', ... }
+    # 模拟盘代码格式: 600519.SH
+    index_member = raw
+    print(f"  指数成分: 已标记 {len(index_member)} 只股票")
+except Exception as e:
+    print(f"  ⚠️ 指数成分加载失败: {e}")
+
+def get_index_tag(code):
+    """获取股票指数归属: 300/500/1000/其他"""
+    raw = code.split('.')[0]
+    return index_member.get(raw, '其他')
 
 
 # ===================== 加载指数 + V4状态 =====================
@@ -467,6 +486,8 @@ for di, date in enumerate(sim_dates):
         daily_top50.append({
             '日期': signal_date, '执行日': exec_date, '排名': rank, '代码': c['code'],
             '名称': code_to_name.get(c['code'], ''),
+            '指数归属': get_index_tag(c['code']),
+            '池内': '是',
             '得分': round(c['score'], 4),
             '金叉天数': c['gc_days'],
             'DIF%': round(c['dif_pct'], 4),
@@ -479,6 +500,8 @@ for di, date in enumerate(sim_dates):
     last_full_pool = [{
         '日期': signal_date, '执行日': exec_date, '排名': idx + 1, '代码': c['code'],
         '名称': code_to_name.get(c['code'], ''),
+        '指数归属': get_index_tag(c['code']),
+        '池内': '是',
         '得分': round(c['score'], 4),
         '金叉天数': c['gc_days'],
         'DIF%': round(c['dif_pct'], 4),
@@ -657,6 +680,8 @@ for code, pos in portfolio.items():
     market_value = pos['shares'] * close_p
     final_holdings.append({
         '代码': code, '名称': code_to_name.get(code, ''),
+        '指数归属': get_index_tag(code),
+        '池内': '是',
         '持仓数量': pos['shares'],
         '买入价格': round(pos['entry_price'], 4),
         '当前价格': round(close_p, 4),
@@ -745,8 +770,8 @@ def write_sheet(ws, headers, data_rows, col_widths=None):
 
 
 ws1 = wb.create_sheet('当前持仓')
-h1 = ['代码', '名称', '持仓数量', '买入价格', '当前价格', '盈亏%', '市值', '入池天数', '买入日期']
-write_sheet(ws1, h1, final_holdings, col_widths=[12, 14, 12, 12, 12, 10, 14, 10, 12])
+h1 = ['代码', '名称', '指数归属', '池内', '持仓数量', '买入价格', '当前价格', '盈亏%', '市值', '入池天数', '买入日期']
+write_sheet(ws1, h1, final_holdings, col_widths=[12, 14, 10, 8, 10, 12, 12, 10, 14, 10, 12])
 
 # 交易记录: 按日期降序排列 (最新在前)
 ws2 = wb.create_sheet('交易记录')
@@ -760,11 +785,11 @@ h3 = ['日期', '净值', '持仓数量', '现金', '持仓市值']
 write_sheet(ws3, h3, daily_nav, col_widths=[12, 12, 12, 16, 16])
 
 ws4 = wb.create_sheet('每日备选池Top50')
-h4 = ['日期', '执行日', '排名', '代码', '名称', '得分', '金叉天数', 'DIF%', 'BAR%', 'vol10', '量比', '量比加分', '涨停']
-write_sheet(ws4, h4, daily_top50, col_widths=[12, 12, 8, 12, 14, 12, 10, 10, 10, 10, 8, 10, 8])
+h4 = ['日期', '执行日', '排名', '代码', '名称', '指数归属', '池内', '得分', '金叉天数', 'DIF%', 'BAR%', 'vol10', '量比', '量比加分', '涨停']
+write_sheet(ws4, h4, daily_top50, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8])
 
 ws5 = wb.create_sheet('最新完整备选池')
-write_sheet(ws5, h4, last_full_pool, col_widths=[12, 12, 8, 12, 14, 12, 10, 10, 10, 10, 8, 10, 8])
+write_sheet(ws5, h4, last_full_pool, col_widths=[12, 12, 8, 12, 14, 10, 8, 12, 10, 10, 10, 10, 8, 10, 8])
 
 ws6 = wb.create_sheet('统计分析')
 stats = [
