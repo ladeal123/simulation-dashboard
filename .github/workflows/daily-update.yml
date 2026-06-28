@@ -14,12 +14,19 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install openpyxl
-      - name: Build dashboard from latest data
+      - name: Build Final Dashboard
         run: |
           EXCEL=$(ls -t data/模拟盘_V46_v62_v20_final_*.xlsx 2>/dev/null | head -1)
           if [ -n "$EXCEL" ]; then
-            python scripts/build_dashboard.py "$EXCEL"
+            python scripts/build_dashboard.py "$EXCEL" data.js
             cp data.js docs/
+          fi
+      - name: Build Consec Dashboard
+        run: |
+          EXCEL=$(ls -t data/模拟盘_V46_v62_v20_consec_*.xlsx 2>/dev/null | head -1)
+          if [ -n "$EXCEL" ]; then
+            python scripts/build_dashboard.py "$EXCEL" data_consec.js
+            cp data_consec.js docs/
           fi
       - name: Commit
         run: |

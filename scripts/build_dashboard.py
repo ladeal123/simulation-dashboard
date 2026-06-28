@@ -138,7 +138,10 @@ def build(excel_path, pool_path='股票池.xlsx'):
     }
     
     # 写入 data.js
-    js_path = os.path.join(os.path.dirname(excel_path) or '.', 'data.js')
+    out_name = 'data.js'
+    if len(sys.argv) > 2:
+        out_name = sys.argv[2]
+    js_path = os.path.join(os.path.dirname(excel_path) or '.', out_name)
     with open(js_path, 'w', encoding='utf-8') as f:
         f.write('const D = ')
         json.dump(output, f, ensure_ascii=False, indent=2)
