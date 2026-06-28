@@ -14,24 +14,23 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install openpyxl
-      - name: Build Final Dashboard
+      
+      - name: Run Simulation & Update Dashboard
+        env:
+          DATA_DIR: ${{ github.workspace }}/data
+          OUT_DIR: ${{ github.workspace }}/data
         run: |
-          EXCEL=$(ls -t data/模拟盘_V46_v62_v20_final_*.xlsx 2>/dev/null | head -1)
-          if [ -n "$EXCEL" ]; then
-            python scripts/build_dashboard.py "$EXCEL" data.js
-            cp data.js docs/
-          fi
-      - name: Build Consec Dashboard
-        run: |
+          python scripts/sim_V46_v62_v20_consec.py
           EXCEL=$(ls -t data/模拟盘_V46_v62_v20_consec_*.xlsx 2>/dev/null | head -1)
           if [ -n "$EXCEL" ]; then
             python scripts/build_dashboard.py "$EXCEL" data_consec.js
-            cp data_consec.js docs/
+            cp data/data_consec.js docs/
           fi
-      - name: Commit
+      
+      - name: Commit Results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "Daily update $(date -u '+%Y-%m-%d')"
+          git diff --staged --quiet || git commit -m "每日更新 $(date -u '+%Y-%m-%d')"
           git push

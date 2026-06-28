@@ -12,7 +12,7 @@
 - 数据: 后复权 + 成交量
 - 交易记录: 按日期降序(最新在前)
 """
-import sys, math, datetime
+import sys, math, datetime, os
 from collections import defaultdict, Counter
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -35,11 +35,13 @@ BOTTOM = -3.0
 COMMISSION_RATE = 0.0001
 STAMP_TAX_RATE = 0.0005
 BACKTEST_START = '2026-01-01'
-POOL_FILE = '/workspace/股票池.xlsx'
-CLOSE_FILE = '/workspace/模拟盘收盘价后复权.xlsx'
-OPEN_FILE = '/workspace/模拟盘开盘价后复权.xlsx'
-INDEX_FILE = '/workspace/模拟盘指数价格数据.xlsx'
-VOL_FILE = '/workspace/模拟盘成交量.xlsx'
+DATA_DIR = os.environ.get('DATA_DIR', '/workspace')
+POOL_FILE = os.path.join(DATA_DIR, '股票池.xlsx')
+CLOSE_FILE = os.path.join(DATA_DIR, '模拟盘收盘价后复权.xlsx')
+OPEN_FILE = os.path.join(DATA_DIR, '模拟盘开盘价后复权.xlsx')
+INDEX_FILE = os.path.join(DATA_DIR, '模拟盘指数价格数据.xlsx')
+VOL_FILE = os.path.join(DATA_DIR, '模拟盘成交量.xlsx')
+OUT_DIR = os.environ.get('OUT_DIR', DATA_DIR)
 
 def ema_v46(values, n_):
     a = 2.0 / (n_ + 1)
@@ -785,7 +787,7 @@ print(f"量比加分: +10%={vol_bonus_count.get(0.10,0)} +20%={vol_bonus_count.g
 print(f"超跌反弹: {rev_bonus_count} | MA144斜率(正){slope_bonus_pos}(负){slope_bonus_neg} | 连涨过滤: {consec_penalty_count}")
 
 now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-out_file = f'/workspace/模拟盘_V46_v62_v20_consec_{now_str}.xlsx'
+out_file = os.path.join(OUT_DIR, f'模拟盘_V46_v62_v20_consec_{now_str}.xlsx')
 print(f"\n写出 Excel: {out_file}", flush=True)
 
 wb = openpyxl.Workbook()
