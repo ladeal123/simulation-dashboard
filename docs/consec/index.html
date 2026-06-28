@@ -112,6 +112,14 @@ function renderOverview(){
 
 // ===== 行业 =====
 function renderIndustry(){
+  if(!D.industry||!D.industry.length){document.getElementById('tab-inner').innerHTML='<p>暂无行业数据</p>';return;}
+  const total=D.industry.reduce((s,i)=>s+i.value,0);
+  const tab=document.getElementById('tab-inner');
+  tab.innerHTML='<div class="chart-grid"><div class="chart-card"><div class="chart-title">行业持仓分布</div><div class="chart-wrap" id="indPie"></div></div><div class="chart-card full"><div class="chart-title">行业明细</div><div class="scroll"><table>'+D.industry.map(i=>'<tr><td>'+i.industry+'</td><td><b>'+i.value.toLocaleString()+'</b></td><td>'+((i.value/total*100).toFixed(1)+'%')+'</td></tr>').join('')+'</table></div></div></div>';
+  const colors=['#2196f3','#ff5252','#ff9100','#00c853','#9c27b0','#00bcd4','#ffeb3b','#795548','#607d8b','#e91e63','#3f51b5','#009688'];
+  const trace={labels:D.industry.map(i=>i.industry),values:D.industry.map(i=>i.value),type:'pie',marker:{colors:colors.slice(0,D.industry.length)},textinfo:'label+percent',hoverinfo:'label+value+percent'};
+  Plotly.newPlot('indPie',[trace],{margin:{t:10,b:10,l:10,r:10},paper_bgcolor:'transparent'},{responsive:true});
+}
   const html=`
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">持仓行业分布(市值)</div><div class="chart-wrap" id="c-ind-pie" style="height:320px"></div></div>
@@ -154,6 +162,13 @@ function renderPnL(){
 }
 
 // ===== 交易 =====
+function renderTop50(){
+  const d=D.latest_top50||[];
+  if(!d.length){document.getElementById('tab-inner').innerHTML='<p>暂无数据</p>';return;}
+  const html='<div class="chart-card full"><div class="chart-title">最新候选池Top50 ('+d[0]['日期']+')</div><div class="scroll" style="max-height:500px"><table><tr><th>排名</th><th>代码</th><th>名称</th><th>指数归属</th><th>得分</th><th>金叉天数</th><th>DIF%</th><th>BAR%</th><th>vol10</th><th>量比</th><th>涨停</th></tr>'+d.map(r=>'<tr><td>'+r['排名']+'</td><td>'+r['代码']+'</td><td>'+(r['名称']||'')+'</td><td>'+(r['指数归属']||'')+'</td><td>'+r['得分']+'</td><td>'+r['金叉天数']+'</td><td>'+(r['DIF%']||'')+'</td><td>'+(r['BAR%']||'')+'</td><td>'+(r['vol10']||'')+'</td><td>'+(r['量比']||'')+'</td><td>'+(r['涨停']||'')+'</td></tr>').join('')+'</table></div></div>';
+  document.getElementById('tab-inner').innerHTML=html;
+}
+
 function renderTrades(){
   const html=`
     <div class="chart-card full"><div class="chart-title">最近一周交易 (${D.week_trades.length}条)</div>
