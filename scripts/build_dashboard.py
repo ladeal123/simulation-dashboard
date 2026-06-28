@@ -78,7 +78,20 @@ def build(excel_path, pool_path='股票池.xlsx'):
             t['行业'] = code_to_industry.get(t['代码'], '未知')
             all_trades.append(t)
     
+    # 最新备选池Top50
+    ws5 = wb['每日备选池Top50']
+    h5 = [c.value for c in next(ws5.iter_rows(min_row=1, max_row=1))]
+    top50_all_raw = []
+    for row in ws5.iter_rows(min_row=2, values_only=True):
+        if row[0]:
+            top50_all_raw.append(dict(zip(h5, [str(x) if x is not None else '' for x in row])))
+    
     wb.close()
+    
+    # 处理备选池
+    top50_all_raw.sort(key=lambda x: x['日期'], reverse=True)
+    latest_date = top50_all_raw[0]['日期'] if top50_all_raw else None
+    latest_top50 = [t for t in top50_all_raw if t['日期'] == latest_date][:50]
     
     # 最近一周交易
     latest = max(t['日期'] for t in all_trades)
@@ -134,7 +147,8 @@ def build(excel_path, pool_path='股票池.xlsx'):
         'top_winners': top_winners, 'top_losers': top_losers,
         'ind_pnl': ind_pnl_list, 'sell_reasons': sell_reasons,
         'pnl_dist': [{'r': k, 'c': v} for k, v in sorted(bins.items())],
-        'updated': datetime.now().strftime('%Y-%m-%d %H:%M')
+        'updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'latest_top50': latest_top50,
     }
     
     # 写入 data.js
